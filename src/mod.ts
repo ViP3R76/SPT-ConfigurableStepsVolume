@@ -1,47 +1,101 @@
 import { DependencyContainer } from "tsyringe";
+import { IPreAkiLoadMod } from "@spt-aki/models/external/IPreAkiLoadMod";
+import { IPostAkiLoadMod } from "@spt-aki/models/external/IPostAkiLoadMod";
 import { IPostDBLoadMod } from "@spt-aki/models/external/IPostDBLoadMod";
-// import { SaveServer } from "@spt-aki/servers/SaveServer";
+import { IPmcData } from "@spt-aki/models/eft/common/IPmcData";
+import { Skills } from "@spt-aki/models/eft/common/tables/IBotBase";
+import { ProfileHelper } from "@spt-aki/helpers/ProfileHelper";
+import { PlayerScavGenerator } from "@spt-aki/generators/PlayerScavGenerator";
+import config from "../config.json";
 
-class ConfigurableStepsVolume implements IPostDBLoadMod {
-    mod: string
+class ConfigurableStepsVolume implements IPreAkiLoadMod, IPostAkiLoadMod, IPostDBLoadMod {
+    modName: string = "ConfigurableStepsVolume";
+    private container: DependencyContainer;
+    private profileHelper: ProfileHelper;
+    value: Number = (5100 / 100) * config.SilenceStepsByPercentage
 
-    constructor() {
-        this.mod = "ConfigurableStepsVolume";
+    // Find BotSound skill in the list of skills and change it's value 
+    private setBotSound(skills: Skills): void {
+        const common = skills.Common
+        const BotSoundSkill = common.find(o => o.Id === 'BotSound');
+        if (BotSoundSkill) {
+            BotSoundSkill.Progress = this.value;
+        }
+        return skills
+    }
+
+    // This sets the skill value on for playerScav by patching getScavSkills function inside GeneratePlayerScav class
+    private patchGeneratePlayerScav(): void
+    {
+        const oldClass = this.container.resolve<PlayerScavGenerator>("PlayerScavGenerator"); // Get the original class
+
+        this.container.afterResolution("PlayerScavGenerator", (_t, result: PlayerScavGenerator) => // Patch the original class after it has been resolved
+        {
+            result.getScavSkills = (scavProfile: IPmcData): Skills => // Patch the original function
+            {
+                const skills = oldClass.getScavSkills(scavProfile);    // Call the original function and store the return 
+                return this.setBotSound(skills)
+            }
+        }, {frequency: "Always"});
+    }
+
+    preAkiLoad(container: DependencyContainer): void {
+        if (!config.Enabled) return;
+
+        this.container = container;
+
+        this.patchGeneratePlayerScav();
+
+        // Possible way, but iterating profiles in postAkiLoad seems simpler
+        // This sets the skill value on already existing profiles
+        // import type { StaticRouterModService } from "@spt-aki/services/mod/staticRouter/StaticRouterModService";
+        // import { HttpResponseUtil } from "@spt-aki/utils/HttpResponseUtil";
+        // this.logger = container.resolve<ILogger>("WinstonLogger");
+        // const staticRouterModService = container.resolve<StaticRouterModService>("StaticRouterModService");
+        // const HttpResponse = container.resolve<HttpResponseUtil>("HttpResponseUtil");
+
+        // staticRouterModService.registerStaticRouter("CheckProfile", [{
+        //     url: "/client/game/version/validate",
+        //     action: (url, info, sessionID, output) => {
+        //         try {
+        //             const profileHelper = container.resolve<ProfileHelper>("ProfileHelper");
+        //             const profile = profileHelper.getFullProfile(sessionID);
+        //             const pmcData: IPmcData = profile.characters.pmc;
+        //             const skills = pmcData.Skills
+        //             if (skills) {
+        //                 this.setBotSound(skills)
+        //             }
+
+        //             return HttpResponse.nullResponse();
+        //         }
+        //         catch (e) {
+        //             this.logger.error("Configurable Steps Volume: Error Checking Player Profile: " + e);
+        //             return HttpResponse.nullResponse();
+        //         }
+        //     }
+        // }], "SilentStep");
+    }
+    postAkiLoad(container: DependencyContainer) {
+        this.profileHelper = container.resolve<ProfileHelper>("ProfileHelper");
+        const profiles = this.profileHelper.getProfiles();
+
+        // This sets the skill value on all existing profiles
+        Object.keys(profiles).forEach((key) => {
+            this.setBotSound(profiles[key].characters.pmc.Skills)
+        });
     }
     postDBLoad(container: DependencyContainer) {
-        const config = require("../config/config.json");
-        if (config.Enabled) {
-            const value:Number = (5100 / 100) * config.SilenceStepsByPercentage
-            // Set value for new profiles
-            const databaseServer = container.resolve("DatabaseServer");
-            const tables = databaseServer.getTables();
-            const profiles = tables.templates.profiles
-            for (const [profileName, profile] of Object.entries(profiles)) {
-                const factions = ['bear', 'usec']
-                for (const faction of factions) {
-                    const skills = profile[faction].character.Skills.Common
-                    const CharacterSound = skills.find(o => o.Id === 'BotSound');
-                    CharacterSound.Progress = value
-                }
+        if (!config.Enabled) return;
+
+        // This sets the default skill value when creating a new profile/wiping
+        const databaseServer = container.resolve("DatabaseServer");
+        const defaultProfiles = databaseServer.getTables().templates.profiles;
+        const factions = ['bear', 'usec']
+        for (const [_, profile] of Object.entries(defaultProfiles)) {
+            for (const faction of factions) {
+                const skills = profile[faction].character.Skills
+                this.setBotSound(skills)
             }
-
-            // Trying to set value for loaded/already created profiles
-            // const profileHelper = container.resolve("ProfileHelper");
-            // const saveServer = container.resolve<SaveServer>("SaveServer");
-            // // console.log(saveServer)
-            // const profiles = saveServer.getProfiles()
-            // // console.log(profiles)
-
-            // for (const sessionID in saveServer.getProfiles()) {
-            //     console.log('account')
-            //     const account = saveServer.getProfile(sessionID);
-            //     console.log(account)
-            //     // const account = saveServer.getProfile(sessionID).info;
-            //     // if (info.username === account.username) {
-            //     //     originalReturn = sessionID;
-            //     //     break;
-            //     // }
-            // }
         }
     }
 }
