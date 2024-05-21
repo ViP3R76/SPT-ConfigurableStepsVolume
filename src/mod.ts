@@ -45,35 +45,6 @@ class ConfigurableStepsVolume implements IPreAkiLoadMod, IPostAkiLoadMod, IPostD
         this.container = container;
 
         this.patchGeneratePlayerScav();
-
-        // Possible way, but iterating profiles in postAkiLoad seems simpler
-        // This sets the skill value on already existing profiles
-        // import type { StaticRouterModService } from "@spt-aki/services/mod/staticRouter/StaticRouterModService";
-        // import { HttpResponseUtil } from "@spt-aki/utils/HttpResponseUtil";
-        // this.logger = container.resolve<ILogger>("WinstonLogger");
-        // const staticRouterModService = container.resolve<StaticRouterModService>("StaticRouterModService");
-        // const HttpResponse = container.resolve<HttpResponseUtil>("HttpResponseUtil");
-
-        // staticRouterModService.registerStaticRouter("CheckProfile", [{
-        //     url: "/client/game/version/validate",
-        //     action: (url, info, sessionID, output) => {
-        //         try {
-        //             const profileHelper = container.resolve<ProfileHelper>("ProfileHelper");
-        //             const profile = profileHelper.getFullProfile(sessionID);
-        //             const pmcData: IPmcData = profile.characters.pmc;
-        //             const skills = pmcData.Skills
-        //             if (skills) {
-        //                 this.setBotSound(skills)
-        //             }
-
-        //             return HttpResponse.nullResponse();
-        //         }
-        //         catch (e) {
-        //             this.logger.error("Configurable Steps Volume: Error Checking Player Profile: " + e);
-        //             return HttpResponse.nullResponse();
-        //         }
-        //     }
-        // }], "SilentStep");
     }
     postAkiLoad(container: DependencyContainer) {
         this.profileHelper = container.resolve<ProfileHelper>("ProfileHelper");
