@@ -11,8 +11,13 @@ At 0% reduction it doesn't do anything and you will enjoy the unmodified thunder
 At 100% reduction your steps are completly silent.
 This mod set it to 45% which seems around the normal volume steps have in other games.
 
-At least for now this only works for newly created profiles.
-Pretty useful when multiple people create profiles in a social gathering server if you know what I mean.
+This does not affect the sound the actual bots make or as far as I can tell their ability to hear you.
+Only affects how much you hear your own footsteps.
 
-If you wanna change an existing profile you will need to use a profile editor and change the BotSound skill.
+Compatibility:
+It could be incompatible with mods that change the generation of player scavs.
 
+Installation: Place extracted folder SPT-ConfigurableStepsVolume inside user/mods
+
+Known bugs:
+The sound doesn't get updated for the first player scav. Play with him and the second one will work properly.
